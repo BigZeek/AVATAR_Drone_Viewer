@@ -1,0 +1,24 @@
+@startuml Drone Viewer
+allowmixing
+
+package GUI5
+    {
+        package DroneViewer
+        {
+            file Drone_viewer
+            file DroneData
+        }
+
+        file main.qml
+        file GUI5.py
+        file GUI5_ManualDroneControl.py
+    
+        
+        DroneData --> Drone_viewer
+        GUI5_ManualDroneControl.py --> DroneData
+        Drone_viewer --> GUI5.py
+        GUI5.py --> main.qml
+    }
+
+
+@enduml
