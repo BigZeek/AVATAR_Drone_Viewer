@@ -14,7 +14,7 @@ from PySide6.Qt3DRender import Qt3DRender
 
 
 class ModelEntity(Qt3DCore.QEntity):
-    def __init__(self, parent=None, model_path=None):
+    def __init__(self, parent=None, model_path="Drone viewer\drone.obj"):
         super().__init__(parent)
 
         # Material
@@ -30,7 +30,7 @@ class ModelEntity(Qt3DCore.QEntity):
 
         # Transform
         self.transform = Qt3DCore.QTransform()
-        self._rotation = QQuaternion()
+        self._rotation = QQuaternion.fromAxisAndAngle(QVector3D(0, 1, 0), -90)  # 45° Y-axis rotation
         self.transform.setRotation(self._rotation)
 
         # Components
@@ -48,10 +48,15 @@ class ModelEntity(Qt3DCore.QEntity):
     def applyRotation(self, axis: QVector3D, angle: float):
         rot = QQuaternion.fromAxisAndAngle(axis, angle)
         self._rotation = rot * self._rotation
-        self.transform.setRotation(self._rotation)
+        self.transform.setPosition(self._rotation)
 
+    def setPosition(self, position: QVector3D):
+        """Move the drone model in 3D space."""
+        if not isinstance(position, QVector3D):
+            raise TypeError(f"Expected QVector3D, got {type(position).name}")
+        self.transform.setTranslation(position)
 
-    rotation = Property(QQuaternion, getRotation, setRotation)
+    rotation = Property(QQuaternion, getRotation, setPosition)
 
 
 class ObjectViewer(QWidget):
@@ -74,18 +79,19 @@ class ObjectViewer(QWidget):
         # Camera
         self.camera = self.view.camera()
         self.camera.lens().setPerspectiveProjection(45.0, 16/9, 0.1, 1400)
-        self.camera.setPosition(QVector3D(0, 0, 100))
-        self.camera.setViewCenter(QVector3D(0, 0, 0))
+        self.camera.setPosition(QVector3D(10, 0, 120))
+        self.camera.setViewCenter(QVector3D(10, 0, 0))
 
         # Light
         lightEntity = Qt3DCore.QEntity(self.rootEntity)
         light = Qt3DRender.QPointLight(lightEntity)
-        light.setColor("white")
+        light.setColor("grey")
         light.setIntensity(1)
         lightTransform = Qt3DCore.QTransform()
         lightTransform.setTranslation(QVector3D(10, 10, 10))
         lightEntity.addComponent(light)
         lightEntity.addComponent(lightTransform)
+
 
         # .OBJ File Opener
         model_path = os.path.join(os.path.dirname(__file__))  # OLD Replace with your path
@@ -127,8 +133,8 @@ class ObjectViewer(QWidget):
         self.addButton("Rotate Down", lambda: self.rotate_all("down"), control_layout)
         self.addButton("Zoom Out", self.zoom_out, control_layout)
         self.addButton("Zoom In", self.zoom_in, control_layout)
-        self.addButton("Play Animation", self.play_obj_animation, control_layout)
-        self.addButton("Stop Animation", self.stop_obj_animation, control_layout)
+        self.addButton("Takeoff", self.takeoff, control_layout)
+        self.addButton("Land", self.land, control_layout)
 
         self.animation_timer = QTimer()
         self.animation_timer.timeout.connect(self.next_obj_frame)
@@ -196,6 +202,7 @@ class ObjectViewer(QWidget):
         self.animation.setEndValue(new_rotation)
         self.animation.start()
 
+
     #Start animation
     def play_obj_animation(self):
         if not self.obj_frames:
@@ -214,6 +221,16 @@ class ObjectViewer(QWidget):
         
         self.animation_timer.stop()
 
+
+    def takeoff(self):
+        self.controller.takeoff()
+        self.play_obj_animation()
+        
+    def land(self):
+        self.controller.land()
+        self.stop_obj_animation()
+        
+        
     #Frame Buffering to stop studdering
     def next_obj_frame(self):
         if not self.frame_entities:
@@ -251,6 +268,8 @@ class ObjectViewer(QWidget):
     def rotate_all(self, direction):
         self.rotate_drone(direction)
         self.rotate_animation_frames(direction)
+        
+            
 
 
 if __name__ == "__main__":
